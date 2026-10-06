@@ -28,18 +28,7 @@ jobs:
           curl -fL --retry 3 -o assets/vendor/jszip.min.js https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
           curl -fL --retry 3 -o "source/煤矿安全规程（2025修订）.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/202508/P020250804637946571624.pdf"
           curl -fL --retry 3 -o "source/2026《防治煤矿冲击地压细则》.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202607/W020260724567567627285.pdf"
-          python3 - <<'PY'
-from pathlib import Path
-p=Path("index.html")
-s=p.read_text(encoding="utf-8")
-css='<link rel="stylesheet" href="./assets/source-viewer.css">'
-scripts='<script src="./assets/vendor/pdf.min.js"></script><script src="./assets/vendor/jszip.min.js"></script><script src="./assets/source-viewer.js"></script>'
-if 'assets/source-viewer.css' not in s:
-    s=s.replace('</head>', css+'\n</head>')
-if 'assets/source-viewer.js' not in s:
-    s=s.replace('</body>', scripts+'\n</body>')
-p.write_text(s,encoding="utf-8")
-PY
+          python3 -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); css='<link rel=\"stylesheet\" href=\"./assets/source-viewer.css\">'; scripts='<script src=\"./assets/vendor/pdf.min.js\"></script><script src=\"./assets/vendor/jszip.min.js\"></script><script src=\"./assets/source-viewer.js\"></script>'; s=s if 'assets/source-viewer.css' in s else s.replace('</head>',css+'\\n</head>'); s=s if 'assets/source-viewer.js' in s else s.replace('</body>',scripts+'\\n</body>'); p.write_text(s,encoding='utf-8')"
           touch .nojekyll
           test -s index.html
           grep -q "煤矿法规标准智能检索" index.html
