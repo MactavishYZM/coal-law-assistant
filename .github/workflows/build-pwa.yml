@@ -131,19 +131,66 @@ jobs:
               if out.stat().st_size<10000: raise SystemExit(f"split too small: {out}")
           src.unlink()
           PY
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=44B8BCE108D113617C98017523C0ECFB' -o 'source/冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=836EF129695ECA8C2F20F17680AB8F38' -o 'source/冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=95E33F9DAB678C4699D7716B3950E4CF' -o 'source/冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=2A30EE8A690EA25AD6663028A92A6FBC' -o 'source/冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=868DEEB8DDF631E6CA041E40DEB6E748' -o 'source/冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=FF7EF083CB2038FF002E7217C5554645' -o 'source/冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=188998999F456647320B865059576663' -o 'source/冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=26FA2F30FA206A915CFAAFA321F2BD7D' -o 'source/冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=6176B5DA2F64C1EDE58E81E69C8EFD16' -o 'source/冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=352060B2F275AF6D386B327A4C96A061' -o 'source/冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=E6218F257E3AFF657CD87FCE4F5996B1' -o 'source/冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=EC1CF6259B9379D8048AE4577CF4F9CE' -o 'source/冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf'
-          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=1A22B521BC42BC7BB7ADA5147FCA99E1' -o 'source/冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf'
+          python3 - <<'PY'
+          from pathlib import Path
+          import requests, base64, time, re
+          standards={
+            "44B8BCE108D113617C98017523C0ECFB":"冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf",
+            "836EF129695ECA8C2F20F17680AB8F38":"冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf",
+            "95E33F9DAB678C4699D7716B3950E4CF":"冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf",
+            "2A30EE8A690EA25AD6663028A92A6FBC":"冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf",
+            "868DEEB8DDF631E6CA041E40DEB6E748":"冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf",
+            "FF7EF083CB2038FF002E7217C5554645":"冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf",
+            "188998999F456647320B865059576663":"冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf",
+            "26FA2F30FA206A915CFAAFA321F2BD7D":"冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf",
+            "6176B5DA2F64C1EDE58E81E69C8EFD16":"冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf",
+            "352060B2F275AF6D386B327A4C96A061":"冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf",
+            "E6218F257E3AFF657CD87FCE4F5996B1":"冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf",
+            "EC1CF6259B9379D8048AE4577CF4F9CE":"冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf",
+            "1A22B521BC42BC7BB7ADA5147FCA99E1":"冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf",
+          }
+          headers={
+            "Accept":"text/plain, */*; q=0.01",
+            "Accept-Language":"zh-CN,zh;q=0.9,en;q=0.8",
+            "User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36",
+            "X-Requested-With":"XMLHttpRequest",
+            "Referer":"https://openstd.samr.gov.cn/",
+          }
+          sess=requests.Session()
+          def get_piece(hcno,suffix):
+              ident=hcno+suffix
+              errors=[]
+              for scheme in ("https","http"):
+                  url=f"{scheme}://c.gb688.cn/bzgk/gb/viewGb?type=online&hcno={ident}"
+                  for attempt in range(4):
+                      try:
+                          r=sess.post(url,headers=headers,timeout=(12,45),allow_redirects=True)
+                          txt=r.text.strip()
+                          if r.ok and txt and not txt.lstrip().startswith("<"):
+                              return txt
+                          errors.append(f"{url} status={r.status_code} len={len(txt)}")
+                      except Exception as e:
+                          errors.append(f"{url} {type(e).__name__}:{e}")
+                      time.sleep(1.5*(attempt+1))
+              raise RuntimeError(" ; ".join(errors[-8:]))
+          for hcno,name in standards.items():
+              print("Downloading official preview:",name)
+              pieces=[]
+              for i in range(10):
+                  suffix="" if i==0 else f".{i:03d}"
+                  piece=get_piece(hcno,suffix)
+                  piece=re.sub(r"\s+","",piece).strip('"')
+                  pieces.append(piece)
+                  print("  chunk",i,"chars",len(piece))
+              raw=base64.b64decode("".join(pieces),validate=False)
+              if not raw.startswith(b"%PDF"):
+                  raise RuntimeError(f"Decoded content is not PDF for {name}: {raw[:80]!r}")
+              out=Path("source")/name
+              out.write_bytes(raw)
+              print("  saved",out,len(raw),"bytes")
+              if out.stat().st_size<20000:
+                  raise RuntimeError(f"GB/T PDF too small: {out}")
+          PY
           python3 -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); css='<link rel=\"stylesheet\" href=\"./assets/source-viewer.css\">'; scripts='<script src=\"./assets/vendor/pdf.min.js\"></script><script src=\"./assets/vendor/jszip.min.js\"></script><script src=\"./assets/source-viewer.js\"></script>'; s=s.replace('https://raw.githubusercontent.com/wangshi-LN/coal-mine-safety-regulations-2025/main/data/coal_mine_safety_regulations_2025.json','./data/rules2025.json'); s=s if 'assets/source-viewer.css' in s else s.replace('</head>',css+'\\n</head>'); s=s if 'assets/source-viewer.js' in s else s.replace('</body>',scripts+'\\n</body>'); p.write_text(s,encoding='utf-8')"
           touch .nojekyll
           test -s index.html
