@@ -32,17 +32,13 @@ jobs:
           curl -fL --retry 3 -o "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/202605/W020260528321876055084.pdf"
           curl -fL --retry 3 -o "source/KA-2026-第3号公告-标准文本.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202605/W020260713463865545561.pdf"
           python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr
           python3 - <<'PY'
           from pathlib import Path
           from pypdf import PdfReader, PdfWriter
-          import re
+          import re, subprocess, tempfile, os
           src=Path("source/KA-2026-第3号公告-标准文本.pdf")
           r=PdfReader(str(src))
-          starts={}
-          for i,p in enumerate(r.pages):
-              t=(p.extract_text() or "").replace(" ","").replace("\n","")
-              for m in re.finditer(r"KA(?:/T)?(\d+)[—–-]2026",t,re.I):
-                  starts.setdefault(int(m.group(1)),i)
           wanted={
               35:"KA 35-2026 底板岩层冲击倾向性分类及指数测定方法.pdf",
               36:"KA 36-2026 冲击危险性评价的综合指数方法.pdf",
@@ -50,17 +46,68 @@ jobs:
               39:"KA 39-2026 冲击地压个体防护要求.pdf",
               40:"KA 40-2026 煤矿冲击地压解危措施效果检验方法.pdf",
           }
+          starts={}
+          pat=re.compile(r"KA\s*(?:/T\s*)?(\d+)\s*[-—–]\s*2026",re.I)
+          def add(txt,page):
+              txt=(txt or "").replace("－","-").replace("—","-").replace("–","-")
+              for m in pat.finditer(txt):
+                  code=int(m.group(1))
+                  if 30 <= code <= 60:
+                      starts.setdefault(code,page)
+          # 1) PDF outlines/bookmarks
+          def walk(items):
+              for it in items or []:
+                  if isinstance(it,list):
+                      walk(it); continue
+                  title=getattr(it,"title",None) or str(it)
+                  try: page=r.get_destination_page_number(it)
+                  except Exception: page=None
+                  if page is not None: add(title,page)
+          try: walk(r.outline)
+          except Exception as e: print("Outline read warning:",e)
+          print("KA starts from outlines:",starts)
+          # 2) Poppler text extraction; usually handles embedded Chinese fonts better than pypdf
+          if not all(k in starts for k in wanted):
+              for i in range(len(r.pages)):
+                  try:
+                      p=subprocess.run(["pdftotext","-f",str(i+1),"-l",str(i+1),str(src),"-"],
+                                       stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=8)
+                      add(p.stdout.decode("utf-8","ignore"),i)
+                  except Exception:
+                      pass
+                  if all(k in starts for k in wanted): break
+          print("KA starts after pdftotext:",starts)
+          # 3) OCR fallback only for locating standard cover pages; output is never used as legal text.
+          if not all(k in starts for k in wanted):
+              tmp=Path(tempfile.mkdtemp(prefix="ka_cover_"))
+              for i in range(len(r.pages)):
+                  if all(k in starts for k in wanted): break
+                  stem=tmp/f"p{i+1}"
+                  try:
+                      subprocess.run(["pdftoppm","-f",str(i+1),"-l",str(i+1),"-r","110","-gray","-png","-singlefile",str(src),str(stem)],
+                                     stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=15,check=True)
+                      img=str(stem)+".png"
+                      p=subprocess.run(["tesseract",img,"stdout","-l","eng","--psm","6"],
+                                       stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=15)
+                      add(p.stdout.decode("utf-8","ignore"),i)
+                      try: os.remove(img)
+                      except OSError: pass
+                  except Exception:
+                      pass
+          print("KA final starts:",starts)
+          missing=[k for k in wanted if k not in starts]
+          if missing:
+              raise SystemExit(f"KA start pages not found: {missing}; detected={starts}; pages={len(r.pages)}")
           all_starts=sorted((p,c) for c,p in starts.items())
           for code,name in wanted.items():
-              if code not in starts:
-                  raise SystemExit(f"KA {code}-2026 start page not found; detected={starts}")
               s=starts[code]
               nxt=[p for p,c in all_starts if p>s]
-              e=(min(nxt) if nxt else len(r.pages))
+              e=min(nxt) if nxt else len(r.pages)
               w=PdfWriter()
               for j in range(s,e): w.add_page(r.pages[j])
               out=Path("source")/name
               with out.open("wb") as f:w.write(f)
+              print(f"Split KA {code}-2026: pages {s+1}-{e}, {out.stat().st_size} bytes")
               if out.stat().st_size<10000: raise SystemExit(f"split too small: {out}")
           src.unlink()
           PY
