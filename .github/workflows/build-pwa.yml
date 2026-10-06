@@ -1,0 +1,36 @@
+name: Build PWA
+
+on:
+  push:
+    paths:
+      - ".github/workflows/build-pwa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Rebuild application
+        shell: bash
+        run: |
+          cat payload/part-*.b64 | tr -d '\r\n' | base64 --decode | gzip --decompress > index.html
+          touch .nojekyll
+          test -s index.html
+          grep -q "煤矿法规标准智能检索" index.html
+      - name: Commit built app
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .nojekyll
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Build deployable PWA"
+            git push
+          fi
