@@ -45,6 +45,12 @@ jobs:
                   p.write_text(ns,encoding="utf-8")
                   changed+=1
           print("Patched openstd_spider files:",changed)
+          cap=root/"captcha.py"
+          if cap.exists():
+              s=cap.read_text(encoding="utf-8")
+              s=s.replace("img_data.tostring()","img_data.tobytes()")
+              cap.write_text(s,encoding="utf-8")
+              print("Patched NumPy captcha compatibility")
           PY
           sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr
           python3 - <<'PY'
