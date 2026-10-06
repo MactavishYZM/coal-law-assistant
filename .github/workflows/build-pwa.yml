@@ -29,6 +29,54 @@ jobs:
           curl -fL --retry 3 -o data/rules2025.json https://raw.githubusercontent.com/wangshi-LN/coal-mine-safety-regulations-2025/main/data/coal_mine_safety_regulations_2025.json
           curl -fL --retry 3 -o "source/煤矿安全规程（2025修订）.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/202508/P020250804637946571624.pdf"
           curl -fL --retry 3 -o "source/2026《防治煤矿冲击地压细则》.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202607/W020260724567567627285.pdf"
+          curl -fL --retry 3 -o "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/202605/W020260528321876055084.pdf"
+          curl -fL --retry 3 -o "source/KA-2026-第3号公告-标准文本.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202605/W020260713463865545561.pdf"
+          python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
+          python3 - <<'PY'
+          from pathlib import Path
+          from pypdf import PdfReader, PdfWriter
+          import re
+          src=Path("source/KA-2026-第3号公告-标准文本.pdf")
+          r=PdfReader(str(src))
+          starts={}
+          for i,p in enumerate(r.pages):
+              t=(p.extract_text() or "").replace(" ","").replace("\n","")
+              for m in re.finditer(r"KA(?:/T)?(\d+)[—–-]2026",t,re.I):
+                  starts.setdefault(int(m.group(1)),i)
+          wanted={
+              35:"KA 35-2026 底板岩层冲击倾向性分类及指数测定方法.pdf",
+              36:"KA 36-2026 冲击危险性评价的综合指数方法.pdf",
+              37:"KA 37-2026 冲击地压巷道防冲支护方法.pdf",
+              39:"KA 39-2026 冲击地压个体防护要求.pdf",
+              40:"KA 40-2026 煤矿冲击地压解危措施效果检验方法.pdf",
+          }
+          all_starts=sorted((p,c) for c,p in starts.items())
+          for code,name in wanted.items():
+              if code not in starts:
+                  raise SystemExit(f"KA {code}-2026 start page not found; detected={starts}")
+              s=starts[code]
+              nxt=[p for p,c in all_starts if p>s]
+              e=(min(nxt) if nxt else len(r.pages))
+              w=PdfWriter()
+              for j in range(s,e): w.add_page(r.pages[j])
+              out=Path("source")/name
+              with out.open("wb") as f:w.write(f)
+              if out.stat().st_size<10000: raise SystemExit(f"split too small: {out}")
+          src.unlink()
+          PY
+          openstd_spider download 'GB/T 25217.1-2010' -o 'source/冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf'
+          openstd_spider download 'GB/T 25217.2-2010' -o 'source/冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf'
+          openstd_spider download 'GB/T 25217.3-2019' -o 'source/冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf'
+          openstd_spider download 'GB/T 25217.4-2019' -o 'source/冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf'
+          openstd_spider download 'GB/T 25217.5-2019' -o 'source/冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf'
+          openstd_spider download 'GB/T 25217.6-2019' -o 'source/冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf'
+          openstd_spider download 'GB/T 25217.7-2019' -o 'source/冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf'
+          openstd_spider download 'GB/T 25217.8-2021' -o 'source/冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf'
+          openstd_spider download 'GB/T 25217.9-2020' -o 'source/冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf'
+          openstd_spider download 'GB/T 25217.10-2019' -o 'source/冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf'
+          openstd_spider download 'GB/T 25217.11-2019' -o 'source/冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf'
+          openstd_spider download 'GB/T 25217.12-2019' -o 'source/冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf'
+          openstd_spider download 'GB/T 25217.14-2020' -o 'source/冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf'
           python3 -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); css='<link rel=\"stylesheet\" href=\"./assets/source-viewer.css\">'; scripts='<script src=\"./assets/vendor/pdf.min.js\"></script><script src=\"./assets/vendor/jszip.min.js\"></script><script src=\"./assets/source-viewer.js\"></script>'; s=s.replace('https://raw.githubusercontent.com/wangshi-LN/coal-mine-safety-regulations-2025/main/data/coal_mine_safety_regulations_2025.json','./data/rules2025.json'); s=s if 'assets/source-viewer.css' in s else s.replace('</head>',css+'\\n</head>'); s=s if 'assets/source-viewer.js' in s else s.replace('</body>',scripts+'\\n</body>'); p.write_text(s,encoding='utf-8')"
           touch .nojekyll
           test -s index.html
@@ -38,6 +86,25 @@ jobs:
           test -s data/rules2025.json
           test -s "source/煤矿安全规程（2025修订）.pdf"
           test -s "source/2026《防治煤矿冲击地压细则》.pdf"
+          test -s "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf"
+          test -s "source/KA 35-2026 底板岩层冲击倾向性分类及指数测定方法.pdf"
+          test -s "source/KA 36-2026 冲击危险性评价的综合指数方法.pdf"
+          test -s "source/KA 37-2026 冲击地压巷道防冲支护方法.pdf"
+          test -s "source/KA 39-2026 冲击地压个体防护要求.pdf"
+          test -s "source/KA 40-2026 煤矿冲击地压解危措施效果检验方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf"
+          test -s "source/冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf"
           file icons/apple-touch-icon.png icons/icon-192.png icons/icon-512.png
       - name: Commit built app
         shell: bash
