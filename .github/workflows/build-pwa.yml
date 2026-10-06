@@ -18,6 +18,8 @@ jobs:
       - name: Rebuild application
         shell: bash
         run: |
+          wc -c payload/part-*.b64
+          sha256sum payload/part-*.b64
           cat payload/part-*.b64 | tr -d '\r\n' | base64 --decode | gzip --decompress > index.html
           touch .nojekyll
           test -s index.html
