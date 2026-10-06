@@ -125,19 +125,19 @@ jobs:
               if out.stat().st_size<10000: raise SystemExit(f"split too small: {out}")
           src.unlink()
           PY
-          openstd_spider download 'GB/T 25217.1-2010' -o 'source/冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf'
-          openstd_spider download 'GB/T 25217.2-2010' -o 'source/冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf'
-          openstd_spider download 'GB/T 25217.3-2019' -o 'source/冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf'
-          openstd_spider download 'GB/T 25217.4-2019' -o 'source/冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf'
-          openstd_spider download 'GB/T 25217.5-2019' -o 'source/冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf'
-          openstd_spider download 'GB/T 25217.6-2019' -o 'source/冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf'
-          openstd_spider download 'GB/T 25217.7-2019' -o 'source/冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf'
-          openstd_spider download 'GB/T 25217.8-2021' -o 'source/冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf'
-          openstd_spider download 'GB/T 25217.9-2020' -o 'source/冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf'
-          openstd_spider download 'GB/T 25217.10-2019' -o 'source/冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf'
-          openstd_spider download 'GB/T 25217.11-2019' -o 'source/冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf'
-          openstd_spider download 'GB/T 25217.12-2019' -o 'source/冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf'
-          openstd_spider download 'GB/T 25217.14-2020' -o 'source/冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=44B8BCE108D113617C98017523C0ECFB' -o 'source/冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=836EF129695ECA8C2F20F17680AB8F38' -o 'source/冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=95E33F9DAB678C4699D7716B3950E4CF' -o 'source/冲击地压测定、监测与防治方法 第3部分：煤岩组合试件冲击倾向性分.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=2A30EE8A690EA25AD6663028A92A6FBC' -o 'source/冲击地压测定、监测与防治方法 第4部分：微震监测方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=868DEEB8DDF631E6CA041E40DEB6E748' -o 'source/冲击地压测定、监测与防治方法 第5部分：地音监测方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=FF7EF083CB2038FF002E7217C5554645' -o 'source/冲击地压测定、监测与防治方法 第6部分：钻屑监测方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=188998999F456647320B865059576663' -o 'source/冲击地压测定、监测与防治方法 第7部分：采动应力监测方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=26FA2F30FA206A915CFAAFA321F2BD7D' -o 'source/冲击地压测定、监测与防治方法 第8部分：电磁辐射监测方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=6176B5DA2F64C1EDE58E81E69C8EFD16' -o 'source/冲击地压测定、监测与防治方法 第9部分：煤层注水防治方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=352060B2F275AF6D386B327A4C96A061' -o 'source/冲击地压测定、监测与防治方法 第10部分：煤层钻孔卸压防治方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=E6218F257E3AFF657CD87FCE4F5996B1' -o 'source/冲击地压测定、监测与防治方法 第11部分：煤层卸压爆破防治方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=EC1CF6259B9379D8048AE4577CF4F9CE' -o 'source/冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf'
+          openstd_spider download 'https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=1A22B521BC42BC7BB7ADA5147FCA99E1' -o 'source/冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf'
           python3 -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(encoding='utf-8'); css='<link rel=\"stylesheet\" href=\"./assets/source-viewer.css\">'; scripts='<script src=\"./assets/vendor/pdf.min.js\"></script><script src=\"./assets/vendor/jszip.min.js\"></script><script src=\"./assets/source-viewer.js\"></script>'; s=s.replace('https://raw.githubusercontent.com/wangshi-LN/coal-mine-safety-regulations-2025/main/data/coal_mine_safety_regulations_2025.json','./data/rules2025.json'); s=s if 'assets/source-viewer.css' in s else s.replace('</head>',css+'\\n</head>'); s=s if 'assets/source-viewer.js' in s else s.replace('</body>',scripts+'\\n</body>'); p.write_text(s,encoding='utf-8')"
           touch .nojekyll
           test -s index.html
