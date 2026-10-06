@@ -32,6 +32,20 @@ jobs:
           curl -fL --retry 3 -o "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/202605/W020260528321876055084.pdf"
           curl -fL --retry 3 -o "source/KA-2026-第3号公告-标准文本.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202605/W020260713463865545561.pdf"
           python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
+          python3 - <<'PY'
+          from pathlib import Path
+          import openstd_spider
+          root=Path(openstd_spider.__file__).resolve().parent
+          changed=0
+          for p in root.rglob("*.py"):
+              s=p.read_text(encoding="utf-8")
+              ns=s.replace("https://openstd.samr.gov.cn/bzgk/gb/","https://openstd.samr.gov.cn/bzgk/std/")
+              ns=ns.replace("/bzgk/gb/","/bzgk/std/")
+              if ns!=s:
+                  p.write_text(ns,encoding="utf-8")
+                  changed+=1
+          print("Patched openstd_spider files:",changed)
+          PY
           sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr
           python3 - <<'PY'
           from pathlib import Path
@@ -98,11 +112,11 @@ jobs:
           missing=[k for k in wanted if k not in starts]
           if missing:
               raise SystemExit(f"KA start pages not found: {missing}; detected={starts}; pages={len(r.pages)}")
+          lengths={35:12,36:20,37:11,39:11,40:13}
           all_starts=sorted((p,c) for c,p in starts.items())
           for code,name in wanted.items():
               s=starts[code]
-              nxt=[p for p,c in all_starts if p>s]
-              e=min(nxt) if nxt else len(r.pages)
+              e=min(len(r.pages),s+lengths[code])
               w=PdfWriter()
               for j in range(s,e): w.add_page(r.pages[j])
               out=Path("source")/name
