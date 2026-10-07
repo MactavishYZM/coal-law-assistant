@@ -52,10 +52,13 @@ jobs:
                       try:
                           jr=s.get(su,headers=h,timeout=30,allow_redirects=True)
                           print(" JSSTATUS",jr.status_code,"LEN",len(jr.content),flush=True)
-                          for jline in jr.text.splitlines():
+                          jlines=jr.text.splitlines()
+                          for ji,jline in enumerate(jlines):
                               jl=jline.lower()
-                              if any(k in jl for k in ("download-file","preview-file","file-pop","downloadfile","previewfile","attachment","filepath","fileurl","searchdetail","pdfbox")):
-                                  print("  JS",jline.strip()[:3000],flush=True)
+                              if any(k in jl for k in ("download-file","preview-file","judgedownload","osspreview","attachmentdown")):
+                                  print(f"  JSHIT {ji}: "+jline.strip()[:3000],flush=True)
+                                  for kk in range(max(0,ji-18),min(len(jlines),ji+45)):
+                                      if kk!=ji: print(f"    JCTX {kk}: "+jlines[kk].strip()[:3000],flush=True)
                       except Exception as je:
                           print(" JSERROR",type(je).__name__,je,flush=True)
               except Exception as e:
