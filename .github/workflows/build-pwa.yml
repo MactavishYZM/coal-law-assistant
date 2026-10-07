@@ -31,9 +31,24 @@ jobs:
           curl -fL --retry 3 -o "source/2026《防治煤矿冲击地压细则》.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202607/W020260724567567627285.pdf"
           curl -fL --retry 3 -o "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/202605/W020260528321876055084.pdf"
           curl -fL --retry 3 -o "source/KA-2026-第3号公告-标准文本.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202605/W020260713463865545561.pdf"
+          python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
+          python3 - <<'PY'
+          from pathlib import Path
+          import openstd_spider
+          root=Path(openstd_spider.__file__).resolve().parent
+          cap=root/"captcha.py"
+          if cap.exists():
+              s=cap.read_text(encoding="utf-8")
+              ns=s.replace("img_data.tostring()","img_data.tobytes()").replace(".tostring()",".tobytes()")
+              if ns!=s:
+                  cap.write_text(ns,encoding="utf-8")
+                  print("Patched OpenSTD captcha NumPy compatibility",flush=True)
+          PY
           python3 - <<'PY'
           from pathlib import Path
           import requests, time
+          from openstd_spider.captcha import fuck_captcha
+
           standards={
             "44B8BCE108D113617C98017523C0ECFB":"冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf",
             "836EF129695ECA8C2F20F17680AB8F38":"冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf",
@@ -49,65 +64,91 @@ jobs:
             "EC1CF6259B9379D8048AE4577CF4F9CE":"冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf",
             "1A22B521BC42BC7BB7ADA5147FCA99E1":"冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf",
           }
+
+          root="https://openstd.samr.gov.cn/bzgk/std/"
           sess=requests.Session()
-          headers={
+          common={
             "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36",
-            "Accept":"application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
             "Accept-Language":"zh-CN,zh;q=0.9,en;q=0.8",
           }
-          base="https://openstd.samr.gov.cn/bzgk/std/showGb"
-          for hcno,name in standards.items():
-              out=Path("source")/name
-              url=base
-              params={"type":"download","hcno":hcno,"request_locale":"zh"}
-              h={**headers,"Referer":f"https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno={hcno}"}
+
+          def view_pdf(hcno,referer):
+              r=sess.get(root+"viewGb",params={"hcno":hcno},headers={
+                  **common,
+                  "Accept":"application/pdf,application/octet-stream;q=0.9,*/*;q=0.8",
+                  "Referer":referer,
+              },timeout=(12,90),allow_redirects=True)
+              return r
+
+          def solve_captcha(show_url):
               last=None
-              for attempt in range(1):
+              for attempt in range(12):
+                  cap=sess.get(root+"gc",params={"_":int(time.time()*1000)},headers={
+                      **common,"Accept":"image/avif,image/webp,image/apng,image/*,*/*;q=0.8","Referer":show_url
+                  },timeout=(10,30),allow_redirects=True)
+                  if not cap.ok or len(cap.content)<100:
+                      last=("captcha",cap.status_code,cap.url,len(cap.content))
+                      time.sleep(0.7)
+                      continue
                   try:
-                      r=sess.get(url,params=params,headers=h,timeout=(12,90),allow_redirects=True)
-                      last=(r.status_code,r.url,r.headers.get("content-type",""),len(r.content),r.content[:32])
-                      if r.ok and r.content.startswith(b"%PDF"):
-                          out.write_bytes(r.content)
-                          print("Downloaded official GB/T:",name,out.stat().st_size,"bytes",flush=True)
-                          break
+                      code=str(fuck_captcha(cap.content)).strip()
                   except Exception as e:
-                      last=(type(e).__name__,str(e))
-                  time.sleep(2*(attempt+1))
-              else:
-                  if 'r' in locals() and isinstance(getattr(r,'text',None),str):
-                      import re
-                      print("---- intermediate HTML diagnostics ----",flush=True)
-                      for line in r.text.splitlines():
-                          low=line.lower()
-                          if any(k in low for k in ("captcha","verify","showgb","viewgb","download","iframe","script","location","hcno")):
-                              print(line[:1200],flush=True)
-                      print("---- extracted URLs ----",flush=True)
-                      for u in re.findall(r'https?://[^"\'<> ]+',r.text):
-                          print(u[:1200],flush=True)
-                  raise RuntimeError(f"Official GB/T download failed for {name}: {last}")
+                      last=("ocr",type(e).__name__,str(e))
+                      time.sleep(0.7)
+                      continue
+                  if len(code)!=4:
+                      last=("ocr-code",code)
+                      time.sleep(0.5)
+                      continue
+                  vr=sess.post(root+"verifyCode",data={"verifyCode":code,"agreeIECTips":"true"},headers={
+                      **common,
+                      "Accept":"*/*",
+                      "X-Requested-With":"XMLHttpRequest",
+                      "Origin":"https://openstd.samr.gov.cn",
+                      "Referer":show_url,
+                  },timeout=(10,30),allow_redirects=True)
+                  txt=vr.text.strip()
+                  print(f"  captcha attempt {attempt+1}: code={code!r}, response={txt[:80]!r}",flush=True)
+                  if vr.ok and txt.lower()=="success":
+                      return True
+                  last=("verify",vr.status_code,txt[:200])
+                  time.sleep(0.7)
+              raise RuntimeError(f"CAPTCHA verification failed: {last}")
+
+          verified=False
+          for hcno,name in standards.items():
+              print("Downloading official GB/T:",name,flush=True)
+              show=sess.get(root+"showGb",params={
+                  "type":"download","hcno":hcno,"request_locale":"zh"
+              },headers={
+                  **common,
+                  "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                  "Referer":root+f"newGbInfo?hcno={hcno}",
+              },timeout=(12,45),allow_redirects=True)
+              if not show.ok:
+                  raise RuntimeError(f"showGb failed: {show.status_code} {show.url}")
+
+              pdf=view_pdf(hcno,show.url)
+              if not (pdf.ok and pdf.content.startswith(b"%PDF")):
+                  solve_captcha(show.url)
+                  verified=True
+                  pdf=view_pdf(hcno,show.url)
+
+              if not (pdf.ok and pdf.content.startswith(b"%PDF")):
+                  ct=pdf.headers.get("content-type","")
+                  cd=pdf.headers.get("content-disposition","")
+                  preview=pdf.content[:160]
+                  raise RuntimeError(
+                      f"viewGb did not return PDF for {name}: status={pdf.status_code}, "
+                      f"url={pdf.url}, type={ct!r}, disposition={cd!r}, bytes={len(pdf.content)}, head={preview!r}"
+                  )
+
+              out=Path("source")/name
+              out.write_bytes(pdf.content)
               if out.stat().st_size<20000:
                   raise RuntimeError(f"GB/T PDF too small: {out}")
-          PY
-          python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
-          python3 - <<'PY'
-          from pathlib import Path
-          import openstd_spider
-          root=Path(openstd_spider.__file__).resolve().parent
-          changed=0
-          for p in root.rglob("*.py"):
-              s=p.read_text(encoding="utf-8")
-              ns=s.replace("https://openstd.samr.gov.cn/bzgk/gb/","https://openstd.samr.gov.cn/bzgk/std/")
-              ns=ns.replace("/bzgk/gb/","/bzgk/std/")
-              if ns!=s:
-                  p.write_text(ns,encoding="utf-8")
-                  changed+=1
-          print("Patched openstd_spider files:",changed)
-          cap=root/"captcha.py"
-          if cap.exists():
-              s=cap.read_text(encoding="utf-8")
-              s=s.replace("img_data.tostring()","img_data.tobytes()")
-              cap.write_text(s,encoding="utf-8")
-              print("Patched NumPy captcha compatibility")
+              print("  saved",out,out.stat().st_size,"bytes",flush=True)
+          print("GB/T originals complete; captcha_verified=",verified,flush=True)
           PY
           sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils tesseract-ocr
           python3 - <<'PY'
