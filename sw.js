@@ -45,6 +45,27 @@ self.addEventListener('fetch',e=>{
   if(e.request.method!=='GET')return;
   const u=new URL(e.request.url);
   if(u.origin!==location.origin)return;
+  if(e.request.mode==='navigate'){
+    e.respondWith(fetch(e.request,{cache:'no-store'}).then(resp=>{
+      if(resp && resp.ok){
+        const copy=resp.clone();
+        caches.open(CACHE).then(c=>c.put('./index.html',copy));
+      }
+      return resp;
+    }).catch(()=>caches.match('./index.html')));
+    return;
+  }
+  const freshAsset=u.pathname.endsWith('/assets/source-viewer.js')||u.pathname.endsWith('/assets/source-viewer.css');
+  if(freshAsset){
+    e.respondWith(fetch(e.request,{cache:'no-store'}).then(resp=>{
+      if(resp && resp.ok){
+        const copy=resp.clone();
+        caches.open(CACHE).then(c=>c.put(e.request,copy));
+      }
+      return resp;
+    }).catch(()=>caches.match(e.request)));
+    return;
+  }
   e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(resp=>{
     if(resp && resp.ok){
       const copy=resp.clone();
