@@ -36,6 +36,19 @@ jobs:
           from pathlib import Path
           import openstd_spider
           root=Path(openstd_spider.__file__).resolve().parent
+          changed=0
+          for p in root.rglob("*.py"):
+              s=p.read_text(encoding="utf-8")
+              ns=s.replace(".tostring()", ".tobytes()")
+              if ns!=s:
+                  p.write_text(ns,encoding="utf-8")
+                  changed+=1
+          print("Patched NumPy tostring compatibility in",changed,"files")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import openstd_spider
+          root=Path(openstd_spider.__file__).resolve().parent
           cap=root/"captcha.py"
           if cap.exists():
               s=cap.read_text(encoding="utf-8")
