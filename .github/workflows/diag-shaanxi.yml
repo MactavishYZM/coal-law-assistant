@@ -74,4 +74,20 @@ jobs:
                   print("ATTACH",tu,"STATUS",tr.status_code,"FINAL",tr.url,"TYPE",tr.headers.get("content-type"),"DISP",tr.headers.get("content-disposition"),"LEN",len(tr.content),"HEAD",repr(tr.content[:20]),flush=True)
               except Exception as te:
                   print("ATTACH ERROR",tu,type(te).__name__,te,flush=True)
+          print("\n===== CDN ORIGINAL GUESSES =====",flush=True)
+          cdnbase="https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/"
+          guesses=[
+              "20221103225221103USMYF.pdf",
+              "20221103225221103USMYF.PDF",
+              "20221103225221103USMYF",
+              "20221103225221103USMYF-0.pdf",
+              "陕西省煤矿冲击地压防治规定（试行）.pdf",
+          ]
+          for fn in guesses:
+              gu=cdnbase+fn
+              try:
+                  gr=s.get(gu,headers=h,timeout=30,allow_redirects=True)
+                  print("CDN",fn,"STATUS",gr.status_code,"TYPE",gr.headers.get("content-type"),"LEN",len(gr.content),"HEAD",repr(gr.content[:16]),"FINAL",gr.url,flush=True)
+              except Exception as ge:
+                  print("CDN ERROR",fn,type(ge).__name__,ge,flush=True)
           PY
