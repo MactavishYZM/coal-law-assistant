@@ -23,7 +23,7 @@ input[type=text],textarea,select{width:100%;border:1px solid #cbd5e1;border-radi
 .rationale{font-size:12px;color:#475569;background:#f8fafc;border-radius:8px;padding:7px 9px;margin-top:8px}.incident{border:1px solid var(--line);border-radius:12px;padding:12px;margin:14px 0;background:#fafcfe}.incident h3{margin:0 0 8px;font-size:16px}.badge{display:inline-block;border-radius:6px;padding:2px 6px;font-size:11px;margin-left:6px}.badge.reg{background:#fee2e2;color:#8b1f1f}.badge.std{background:#e0f2fe;color:#075985}.badge.ocr{background:#f3e8ff;color:#6b21a8}
 .docrow{padding:12px 14px;margin:8px 0;display:flex;justify-content:space-between;gap:12px;align-items:center}.docmain{min-width:0}.docname{font-weight:750}.docmeta{font-size:12px;color:var(--muted)} a{color:#145b8f;text-decoration:none} a:hover{text-decoration:underline}.footer{color:#64748b;font-size:12px;margin-top:22px;padding:14px 2px}.empty{text-align:center;color:#64748b;padding:28px}.loading{opacity:.7}
 </style>
-<link rel="stylesheet" href="./assets/source-viewer.css?v=20261007-5">
+<link rel="stylesheet" href="./assets/source-viewer.css?v=20261007-6">
 </head>
 <body>
 <header><div class="wrap"><div class="title">煤矿法规标准智能检索（防冲专题）</div><div class="subtitle">压缩包资料本地建库 + 2025版《煤矿安全规程》在线结构化加载；支持原文模糊检索与隐患条目辅助判定。</div><div class="stats"><span class="stat" id="statDocs">本地资料：--</span><span class="stat" id="statRecords">本地条款：--</span><span class="stat" id="statRules">2025规程：未加载</span></div></div></header>
@@ -111,8 +111,8 @@ document.getElementById('statDocs').textContent=`本地资料：${LOCAL_DOCS.len
   const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
   const hint=document.getElementById('iosInstallHint');
   if(hint&&ios&&!standalone) hint.style.display='block';
-  if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js?v=20261007-5').catch(()=>{});
+  if('serviceWorker' in navigator&&location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js?v=20261007-6').catch(()=>{});
 })();
 </script>
-<script src="./assets/vendor/pdf.min.js?v=20261007-5"></script><script src="./assets/vendor/jszip.min.js?v=20261007-5"></script><script src="./assets/source-viewer.js?v=20261007-5"></script>
+<script src="./assets/vendor/pdf.min.js?v=20261007-6"></script><script src="./assets/vendor/jszip.min.js?v=20261007-6"></script><script src="./assets/source-viewer.js?v=20261007-6"></script>
 </body></html>
