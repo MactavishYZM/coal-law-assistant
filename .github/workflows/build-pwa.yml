@@ -131,9 +131,15 @@ jobs:
               if out.stat().st_size<10000: raise SystemExit(f"split too small: {out}")
           src.unlink()
           PY
+          python3 -m pip install --disable-pip-version-check --quiet beautifulsoup4 pillow requests
           python3 - <<'PY'
           from pathlib import Path
-          import requests, base64, time, re
+          from bs4 import BeautifulSoup
+          from PIL import Image
+          from io import BytesIO
+          from urllib.parse import unquote, urljoin
+          import requests, re, time, tempfile
+
           standards={
             "44B8BCE108D113617C98017523C0ECFB":"冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf",
             "836EF129695ECA8C2F20F17680AB8F38":"冲击地压测定、监测与防治方法 第2部分：煤的冲击倾向性分类及指数的测定方法.pdf",
@@ -149,45 +155,135 @@ jobs:
             "EC1CF6259B9379D8048AE4577CF4F9CE":"冲击地压测定、监测与防治方法 第12部分：开采保护层防治方法.pdf",
             "1A22B521BC42BC7BB7ADA5147FCA99E1":"冲击地压测定、监测与防治方法 第14部分：顶板水压致裂防治方法.pdf",
           }
-          headers={
-            "Accept":"text/plain, */*; q=0.01",
-            "Accept-Language":"zh-CN,zh;q=0.9,en;q=0.8",
-            "User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/154 Safari/537.36",
-            "X-Requested-With":"XMLHttpRequest",
-            "Referer":"https://openstd.samr.gov.cn/",
-          }
           sess=requests.Session()
-          def get_piece(hcno,suffix):
-              ident=hcno+suffix
-              errors=[]
-              for scheme in ("https","http"):
-                  url=f"{scheme}://c.gb688.cn/bzgk/gb/viewGb?type=online&hcno={ident}"
+          common={
+            "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36",
+            "Accept-Language":"zh-CN,zh;q=0.9,en;q=0.8",
+          }
+
+          def fetch_show(hcno):
+              errs=[]
+              for root in ("http://c.gb688.cn/bzgk/gb/","https://c.gb688.cn/bzgk/gb/"):
+                  url=root+"showGb"
+                  for attempt in range(3):
+                      try:
+                          r=sess.get(url,params={"type":"online","hcno":hcno},headers=common,timeout=(10,35),allow_redirects=True)
+                          if r.ok and ('class="page"' in r.text or "class='page'" in r.text) and "viewer" in r.text:
+                              return root,r.url,r.text
+                          errs.append(f"{r.url} status={r.status_code} len={len(r.text)}")
+                      except Exception as e:
+                          errs.append(f"{url} {type(e).__name__}:{e}")
+                      time.sleep(1+attempt)
+              raise RuntimeError("showGb failed: "+" ; ".join(errs[-6:]))
+
+          def parse_pages(html):
+              soup=BeautifulSoup(html,"html.parser")
+              out=[]
+              for page in soup.select("div#viewer div.page, div.page"):
+                  style=page.get("style","")
+                  mh=re.search(r"height:\s*(\d+)px",style)
+                  mw=re.search(r"width:\s*(\d+)px",style)
+                  if not mh or not mw:
+                      continue
+                  bg=page.get("bg")
+                  if not bg:
+                      sp=page.select_one('span[class^="pdfImg"]') or page.find("span")
+                      st=sp.get("style","") if sp else ""
+                      m=re.search(r'background-image:\s*url\([\'\"]?([^\)\'\";]+)',st)
+                      bg=m.group(1) if m else None
+                  if not bg:
+                      raise RuntimeError(f"page {page.get('id')} has no background image id")
+                  bg=unquote(bg)
+                  blocks=[]
+                  for sp in page.select('span[class^="pdfImg"]'):
+                      cls=next((x for x in sp.get("class",[]) if x.startswith("pdfImg-")),None)
+                      if not cls:
+                          continue
+                      parts=cls.split("-")
+                      if len(parts)<3: continue
+                      st=sp.get("style","")
+                      m=re.search(r"background-position:\s*(-?\d+)px\s+(-?\d+)px",st)
+                      if not m:
+                          mx=re.search(r"background-position-x:\s*(-?\d+)px",st)
+                          my=re.search(r"background-position-y:\s*(-?\d+)px",st)
+                          if not (mx and my): continue
+                          sx,sy=abs(int(mx.group(1))),abs(int(my.group(1)))
+                      else:
+                          sx,sy=abs(int(m.group(1))),abs(int(m.group(2)))
+                      blocks.append((int(parts[-2]),int(parts[-1]),sx,sy))
+                  out.append({
+                      "no":int(page.get("id",len(out))),
+                      "w":int(mw.group(1)),"h":int(mh.group(1)),
+                      "bg":bg,"blocks":blocks
+                  })
+              out.sort(key=lambda x:x["no"])
+              if not out:
+                  raise RuntimeError("no preview pages parsed")
+              return out
+
+          def fetch_image(root,show_url,img_id):
+              headers={**common,"Referer":show_url}
+              errs=[]
+              if img_id.startswith("http://") or img_id.startswith("https://"):
+                  candidates=[(img_id,None)]
+              else:
+                  candidates=[(urljoin(root,"viewGbImg"),{"fileName":img_id})]
+                  if "/" in img_id:
+                      candidates.append((urljoin(root,img_id.lstrip("/")),None))
+              for url,params in candidates:
                   for attempt in range(4):
                       try:
-                          r=sess.post(url,headers=headers,timeout=(12,45),allow_redirects=True)
-                          txt=r.text.strip()
-                          if r.ok and txt and not txt.lstrip().startswith("<"):
-                              return txt
-                          errors.append(f"{url} status={r.status_code} len={len(txt)}")
+                          r=sess.get(url,params=params,headers=headers,timeout=(10,45),allow_redirects=True)
+                          if r.ok and len(r.content)>1000:
+                              try:
+                                  im=Image.open(BytesIO(r.content))
+                                  im.load()
+                                  return im.convert("RGBA")
+                              except Exception:
+                                  pass
+                          errs.append(f"{r.url} status={r.status_code} bytes={len(r.content)}")
                       except Exception as e:
-                          errors.append(f"{url} {type(e).__name__}:{e}")
-                      time.sleep(1.5*(attempt+1))
-              raise RuntimeError(" ; ".join(errors[-8:]))
+                          errs.append(f"{url} {type(e).__name__}:{e}")
+                      time.sleep(1+attempt)
+              raise RuntimeError("image failed: "+" ; ".join(errs[-8:]))
+
+          def white_rgb(im):
+              if im.mode=="RGBA":
+                  bg=Image.new("RGBA",im.size,(255,255,255,255))
+                  bg.alpha_composite(im)
+                  return bg.convert("RGB")
+              return im.convert("RGB")
+
           for hcno,name in standards.items():
-              print("Downloading official preview:",name)
-              pieces=[]
-              for i in range(10):
-                  suffix="" if i==0 else f".{i:03d}"
-                  piece=get_piece(hcno,suffix)
-                  piece=re.sub(r"\s+","",piece).strip('"')
-                  pieces.append(piece)
-                  print("  chunk",i,"chars",len(piece))
-              raw=base64.b64decode("".join(pieces),validate=False)
-              if not raw.startswith(b"%PDF"):
-                  raise RuntimeError(f"Decoded content is not PDF for {name}: {raw[:80]!r}")
+              print("Rebuilding official preview:",name,flush=True)
+              root,show_url,html=fetch_show(hcno)
+              pages=parse_pages(html)
+              print("  pages:",len(pages),"root:",root,flush=True)
+              cache={}
+              tmp=Path(tempfile.mkdtemp(prefix="gbt_"))
+              jpgs=[]
+              for idx,p in enumerate(pages,1):
+                  if p["bg"] not in cache:
+                      cache[p["bg"]]=white_rgb(fetch_image(root,show_url,p["bg"]))
+                  raw=cache[p["bg"]]
+                  page=Image.new("RGB",(p["w"],p["h"]),"white")
+                  bw=max(1,p["w"]//10); bh=max(1,p["h"]//10)
+                  if p["blocks"]:
+                      for x,y,sx,sy in p["blocks"]:
+                          crop=raw.crop((sx,sy,sx+bw,sy+bh))
+                          page.paste(crop,(x*bw,y*bh))
+                  else:
+                      page.paste(raw.resize((p["w"],p["h"])),(0,0))
+                  jf=tmp/f"{idx:04d}.jpg"
+                  page.save(jf,"JPEG",quality=92,subsampling=0,optimize=True)
+                  jpgs.append(jf)
+                  if idx==1 or idx==len(pages) or idx%5==0:
+                      print(f"  page {idx}/{len(pages)}",flush=True)
+              ims=[Image.open(x).convert("RGB") for x in jpgs]
               out=Path("source")/name
-              out.write_bytes(raw)
-              print("  saved",out,len(raw),"bytes")
+              ims[0].save(out,"PDF",save_all=True,append_images=ims[1:],resolution=150.0,quality=92)
+              for im in ims: im.close()
+              print("  saved",out,out.stat().st_size,"bytes",flush=True)
               if out.stat().st_size<20000:
                   raise RuntimeError(f"GB/T PDF too small: {out}")
           PY
