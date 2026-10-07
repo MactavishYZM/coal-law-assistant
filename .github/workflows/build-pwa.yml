@@ -138,7 +138,8 @@ jobs:
           from PIL import Image
           from io import BytesIO
           from urllib.parse import unquote, urljoin
-          import requests, re, time, tempfile
+          import requests, re, time, tempfile, urllib3
+          urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
           standards={
             "44B8BCE108D113617C98017523C0ECFB":"冲击地压测定、监测与防治方法 第1部分 顶板岩层冲击倾向性分类及指数的测定方法.pdf",
@@ -163,11 +164,11 @@ jobs:
 
           def fetch_show(hcno):
               errs=[]
-              for root in ("http://c.gb688.cn/bzgk/gb/","https://c.gb688.cn/bzgk/gb/"):
+              for root in ("https://c.gb688.cn/bzgk/gb/",):
                   url=root+"showGb"
-                  for attempt in range(3):
+                  for attempt in range(4):
                       try:
-                          r=sess.get(url,params={"type":"online","hcno":hcno},headers=common,timeout=(10,35),allow_redirects=True)
+                          r=sess.get(url,params={"type":"online","hcno":hcno},headers=common,timeout=(12,45),allow_redirects=True,verify=False)
                           if r.ok and ('class="page"' in r.text or "class='page'" in r.text) and "viewer" in r.text:
                               return root,r.url,r.text
                           errs.append(f"{r.url} status={r.status_code} len={len(r.text)}")
@@ -233,7 +234,7 @@ jobs:
               for url,params in candidates:
                   for attempt in range(4):
                       try:
-                          r=sess.get(url,params=params,headers=headers,timeout=(10,45),allow_redirects=True)
+                          r=sess.get(url,params=params,headers=headers,timeout=(12,60),allow_redirects=True,verify=False)
                           if r.ok and len(r.content)>1000:
                               try:
                                   im=Image.open(BytesIO(r.content))
