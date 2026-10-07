@@ -1,4 +1,4 @@
-name: Diagnose Shaanxi source
+name: Import Shaanxi source PDF
 
 on:
   push:
@@ -6,37 +6,51 @@ on:
       - ".github/workflows/diag-shaanxi.yml"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  diag:
-    runs-on: ubuntu-latest
+  import:
+    runs-on: windows-latest
     steps:
-      - name: Verify all preview pages
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download and validate original PDF
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path "source" | Out-Null
+          $url = "https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/%E9%99%95%E8%A5%BF%E7%9C%81%E7%85%A4%E7%9F%BF%E5%86%B2%E5%87%BB%E5%9C%B0%E5%8E%8B%E9%98%B2%E6%B2%BB%E8%A7%84%E5%AE%9A%EF%BC%88%E8%AF%95%E8%A1%8C%EF%BC%89.pdf"
+          $out = "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
+          for ($i=1; $i -le 8; $i++) {
+            try {
+              Write-Host "Attempt $i"
+              curl.exe -4 -fL --retry 2 --retry-delay 2 --connect-timeout 30 --max-time 120 -A "Mozilla/5.0" -o $out $url
+              if (Test-Path $out) {
+                $bytes = [System.IO.File]::ReadAllBytes($out)
+                if ($bytes.Length -gt 100000 -and [System.Text.Encoding]::ASCII.GetString($bytes,0,4) -eq "%PDF") {
+                  Write-Host "Valid PDF:" $bytes.Length "bytes"
+                  break
+                }
+              }
+              Remove-Item $out -ErrorAction SilentlyContinue
+            } catch {
+              Write-Host $_
+              Remove-Item $out -ErrorAction SilentlyContinue
+            }
+            if ($i -eq 8) { throw "Failed to download valid Shaanxi regulation PDF" }
+            Start-Sleep -Seconds (3 * $i)
+          }
+      - name: Commit original PDF
         shell: bash
         run: |
-          python3 -m pip install --quiet requests pillow
-          python3 - <<'PY'
-          import requests
-          from PIL import Image
-          from io import BytesIO
-          base="https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/20221103225221103USMYF-{}.png"
-          h={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36"}
-          s=requests.Session()
-          ok=[]
-          for i in range(15):
-              try:
-                  r=s.get(base.format(i),headers=h,timeout=12,allow_redirects=True)
-                  valid=False
-                  dims=None
-                  if r.ok and len(r.content)>1000:
-                      try:
-                          im=Image.open(BytesIO(r.content)); im.load()
-                          valid=True; dims=im.size
-                      except Exception: pass
-                  print("PAGE",i+1,"STATUS",r.status_code,"LEN",len(r.content),"TYPE",r.headers.get("content-type"),"VALID",valid,"DIMS",dims,flush=True)
-                  if valid: ok.append(i)
-              except Exception as e:
-                  print("PAGE",i+1,"ERROR",type(e).__name__,e,flush=True)
-          print("VALID_INDEXES",ok,flush=True)
-          if ok[:12] != list(range(12)):
-              raise SystemExit("first 12 preview pages are not all available")
-          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
+          if git diff --cached --quiet; then
+            echo "Source PDF already present"
+          else
+            git commit -m "Add Shaanxi rock burst regulation original PDF"
+            git pull --rebase origin main
+            git push
+          fi
