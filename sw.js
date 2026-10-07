@@ -1,4 +1,4 @@
-const CACHE='coal-law-assistant-v5';
+const CACHE='coal-law-assistant-v6';
 const CORE=[
   "./",
   "./index.html",
@@ -6,11 +6,11 @@ const CORE=[
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
-  "./assets/source-viewer.css?v=20261007-5",
-  "./assets/source-viewer.js?v=20261007-5",
-  "./assets/vendor/pdf.min.js?v=20261007-5",
-  "./assets/vendor/pdf.worker.min.js?v=20261007-5",
-  "./assets/vendor/jszip.min.js?v=20261007-5",
+  "./assets/source-viewer.css?v=20261007-6",
+  "./assets/source-viewer.js?v=20261007-6",
+  "./assets/vendor/pdf.min.js?v=20261007-6",
+  "./assets/vendor/pdf.worker.min.js?v=20261007-6",
+  "./assets/vendor/jszip.min.js?v=20261007-6",
   "./data/rules2025.json",
   "./source/2026《防治煤矿冲击地压细则》.pdf",
   "./source/KA 35-2026 底板岩层冲击倾向性分类及指数测定方法.pdf",
