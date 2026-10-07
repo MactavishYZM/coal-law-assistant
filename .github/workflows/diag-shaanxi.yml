@@ -1,4 +1,4 @@
-name: Import Shaanxi source PDF
+name: Verify Shaanxi PDF page mapping
 
 on:
   push:
@@ -6,51 +6,30 @@ on:
       - ".github/workflows/diag-shaanxi.yml"
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  import:
-    runs-on: windows-latest
+  verify:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Download and validate original PDF
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path "source" | Out-Null
-          $url = "https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/%E9%99%95%E8%A5%BF%E7%9C%81%E7%85%A4%E7%9F%BF%E5%86%B2%E5%87%BB%E5%9C%B0%E5%8E%8B%E9%98%B2%E6%B2%BB%E8%A7%84%E5%AE%9A%EF%BC%88%E8%AF%95%E8%A1%8C%EF%BC%89.pdf"
-          $out = "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
-          for ($i=1; $i -le 8; $i++) {
-            try {
-              Write-Host "Attempt $i"
-              curl.exe -4 -fL --retry 2 --retry-delay 2 --connect-timeout 30 --max-time 120 -A "Mozilla/5.0" -o $out $url
-              if (Test-Path $out) {
-                $bytes = [System.IO.File]::ReadAllBytes($out)
-                if ($bytes.Length -gt 100000 -and [System.Text.Encoding]::ASCII.GetString($bytes,0,4) -eq "%PDF") {
-                  Write-Host "Valid PDF:" $bytes.Length "bytes"
-                  break
-                }
-              }
-              Remove-Item $out -ErrorAction SilentlyContinue
-            } catch {
-              Write-Host $_
-              Remove-Item $out -ErrorAction SilentlyContinue
-            }
-            if ($i -eq 8) { throw "Failed to download valid Shaanxi regulation PDF" }
-            Start-Sleep -Seconds (3 * $i)
-          }
-      - name: Commit original PDF
+      - uses: actions/checkout@v4
+      - name: Locate Article 47 in committed PDF
         shell: bash
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
-          if git diff --cached --quiet; then
-            echo "Source PDF already present"
-          else
-            git commit -m "Add Shaanxi rock burst regulation original PDF"
-            git pull --rebase origin main
-            git push
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+          PDF="source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
+          pdfinfo "$PDF" | grep -E 'Pages|File size'
+          found=0
+          pages=$(pdfinfo "$PDF" | awk '/^Pages:/ {print $2}')
+          for i in $(seq 1 "$pages"); do
+            txt=$(pdftotext -f "$i" -l "$i" -layout "$PDF" - 2>/dev/null || true)
+            chars=$(printf '%s' "$txt" | tr -d '[:space:]' | wc -m)
+            echo "PAGE $i TEXT_CHARS $chars"
+            if printf '%s' "$txt" | tr -d '[:space:]' | grep -q '第四十七条'; then
+              echo "ARTICLE_47_PAGE=$i"
+              found=1
+            fi
+          done
+          if [ "$found" -ne 1 ]; then
+            echo "ARTICLE_47_NOT_FOUND_IN_TEXT_LAYER"
+            exit 2
           fi
