@@ -63,4 +63,15 @@ jobs:
                           print(" JSERROR",type(je).__name__,je,flush=True)
               except Exception as e:
                   print("ERROR",type(e).__name__,e,flush=True)
+          print("\n===== DIRECT ATTACHMENT TEST =====",flush=True)
+          test_urls=[
+              "https://www.eiacloud.com/hpyzs/ossPreview?id=dc8582ded3f14e528afce2813f9a50b9",
+              "https://www.eiacloud.com/hpyzs/localDownload?id=dc8582ded3f14e528afce2813f9a50b9",
+          ]
+          for tu in test_urls:
+              try:
+                  tr=s.get(tu,headers={**h,"Referer":"https://www.eiacloud.com/hpyzs/lawsRegulations/searchDetail?id=a6288ddf15404f6f8061e0b65344d2a6"},timeout=45,allow_redirects=True)
+                  print("ATTACH",tu,"STATUS",tr.status_code,"FINAL",tr.url,"TYPE",tr.headers.get("content-type"),"DISP",tr.headers.get("content-disposition"),"LEN",len(tr.content),"HEAD",repr(tr.content[:20]),flush=True)
+              except Exception as te:
+                  print("ATTACH ERROR",tu,type(te).__name__,te,flush=True)
           PY
