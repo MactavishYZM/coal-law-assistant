@@ -10,84 +10,33 @@ jobs:
   diag:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect source pages
+      - name: Verify all preview pages
         shell: bash
         run: |
-          python3 -m pip install --quiet requests beautifulsoup4
+          python3 -m pip install --quiet requests pillow
           python3 - <<'PY'
-          import requests,re
-          from bs4 import BeautifulSoup
-          from urllib.parse import urljoin
-          s=requests.Session()
+          import requests
+          from PIL import Image
+          from io import BytesIO
+          base="https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/20221103225221103USMYF-{}.png"
           h={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36"}
-          urls=[
-            "https://www.eiacloud.com/hpyzs/lawsRegulations/searchDetail?id=a6288ddf15404f6f8061e0b65344d2a6&modelName=%E9%A6%96%E9%A1%B5",
-          ]
-          for url in urls:
-              print("\n===== FETCH",url,"=====",flush=True)
+          s=requests.Session()
+          ok=[]
+          for i in range(15):
               try:
-                  r=s.get(url,headers=h,timeout=30,allow_redirects=True)
-                  print("STATUS",r.status_code,"FINAL",r.url,"LEN",len(r.content),"TYPE",r.headers.get("content-type"),flush=True)
-                  t=r.text
-                  soup=BeautifulSoup(t,"html.parser")
-                  for a in soup.find_all(["a","iframe","embed","object","script","link","img"]):
-                      vals=[a.get("href"),a.get("src"),a.get("data"),a.get("value")]
-                      label=" ".join(a.stripped_strings)
-                      raw=" ".join(x for x in vals if x)
-                      comb=(label+" "+raw).strip()
-                      if any(k in comb.lower() for k in ("冲击地压","pdf","download","附件","file","attach","preview","viewer")):
-                          print(a.name,repr(label[:180]),repr(raw[:500]),flush=True)
-                  print("---- raw matching lines ----",flush=True)
-                  lines=t.splitlines()
-                  for idx,line in enumerate(lines):
-                      low=line.lower()
-                      if any(k in low for k in ("冲击地压","pdf","download","attachment","附件","fileurl","filepath","preview","viewer","resource","download-file","preview-file","file-pop")):
-                          print(f"LINE {idx}: "+line.strip()[:2500],flush=True)
-                          for j in range(max(0,idx-4),min(len(lines),idx+5)):
-                              if j!=idx: print(f"  CTX {j}: "+lines[j].strip()[:2500],flush=True)
-                  print("---- external scripts ----",flush=True)
-                  for sc in soup.find_all("script",src=True):
-                      su=urljoin(r.url,sc.get("src"))
-                      print("SCRIPT",su,flush=True)
+                  r=s.get(base.format(i),headers=h,timeout=12,allow_redirects=True)
+                  valid=False
+                  dims=None
+                  if r.ok and len(r.content)>1000:
                       try:
-                          jr=s.get(su,headers=h,timeout=30,allow_redirects=True)
-                          print(" JSSTATUS",jr.status_code,"LEN",len(jr.content),flush=True)
-                          jlines=jr.text.splitlines()
-                          for ji,jline in enumerate(jlines):
-                              jl=jline.lower()
-                              if any(k in jl for k in ("download-file","preview-file","judgedownload","osspreview","attachmentdown")):
-                                  print(f"  JSHIT {ji}: "+jline.strip()[:3000],flush=True)
-                                  for kk in range(max(0,ji-18),min(len(jlines),ji+45)):
-                                      if kk!=ji: print(f"    JCTX {kk}: "+jlines[kk].strip()[:3000],flush=True)
-                      except Exception as je:
-                          print(" JSERROR",type(je).__name__,je,flush=True)
+                          im=Image.open(BytesIO(r.content)); im.load()
+                          valid=True; dims=im.size
+                      except Exception: pass
+                  print("PAGE",i+1,"STATUS",r.status_code,"LEN",len(r.content),"TYPE",r.headers.get("content-type"),"VALID",valid,"DIMS",dims,flush=True)
+                  if valid: ok.append(i)
               except Exception as e:
-                  print("ERROR",type(e).__name__,e,flush=True)
-          print("\n===== DIRECT ATTACHMENT TEST =====",flush=True)
-          test_urls=[
-              "https://www.eiacloud.com/hpyzs/ossPreview?id=dc8582ded3f14e528afce2813f9a50b9",
-              "https://www.eiacloud.com/hpyzs/localDownload?id=dc8582ded3f14e528afce2813f9a50b9",
-          ]
-          for tu in test_urls:
-              try:
-                  tr=s.get(tu,headers={**h,"Referer":"https://www.eiacloud.com/hpyzs/lawsRegulations/searchDetail?id=a6288ddf15404f6f8061e0b65344d2a6"},timeout=45,allow_redirects=True)
-                  print("ATTACH",tu,"STATUS",tr.status_code,"FINAL",tr.url,"TYPE",tr.headers.get("content-type"),"DISP",tr.headers.get("content-disposition"),"LEN",len(tr.content),"HEAD",repr(tr.content[:20]),flush=True)
-              except Exception as te:
-                  print("ATTACH ERROR",tu,type(te).__name__,te,flush=True)
-          print("\n===== CDN ORIGINAL GUESSES =====",flush=True)
-          cdnbase="https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/"
-          guesses=[
-              "20221103225221103USMYF.pdf",
-              "20221103225221103USMYF.PDF",
-              "20221103225221103USMYF",
-              "20221103225221103USMYF-0.pdf",
-              "陕西省煤矿冲击地压防治规定（试行）.pdf",
-          ]
-          for fn in guesses:
-              gu=cdnbase+fn
-              try:
-                  gr=s.get(gu,headers=h,timeout=30,allow_redirects=True)
-                  print("CDN",fn,"STATUS",gr.status_code,"TYPE",gr.headers.get("content-type"),"LEN",len(gr.content),"HEAD",repr(gr.content[:16]),"FINAL",gr.url,flush=True)
-              except Exception as ge:
-                  print("CDN ERROR",fn,type(ge).__name__,ge,flush=True)
+                  print("PAGE",i+1,"ERROR",type(e).__name__,e,flush=True)
+          print("VALID_INDEXES",ok,flush=True)
+          if ok[:12] != list(range(12)):
+              raise SystemExit("first 12 preview pages are not all available")
           PY
