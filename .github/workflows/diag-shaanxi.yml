@@ -1,0 +1,48 @@
+name: Diagnose Shaanxi source
+
+on:
+  push:
+    paths:
+      - ".github/workflows/diag-shaanxi.yml"
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect source pages
+        shell: bash
+        run: |
+          python3 -m pip install --quiet requests beautifulsoup4
+          python3 - <<'PY'
+          import requests,re
+          from bs4 import BeautifulSoup
+          from urllib.parse import urljoin
+          s=requests.Session()
+          h={"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/154 Safari/537.36"}
+          urls=[
+            "https://www.eiacloud.com/hpyzs/lawsRegulations/searchContent?condition=%E9%99%95%E8%A5%BF%E7%9C%81%E7%85%A4%E7%9F%BF%E5%86%B2%E5%87%BB%E5%9C%B0%E5%8E%8B%E9%98%B2%E6%B2%BB%E8%A7%84%E5%AE%9A&unit=1",
+            "https://www.jinmababa.com/nd.jsp?fromMid=332&id=14",
+          ]
+          for url in urls:
+              print("\n===== FETCH",url,"=====",flush=True)
+              try:
+                  r=s.get(url,headers=h,timeout=30,allow_redirects=True)
+                  print("STATUS",r.status_code,"FINAL",r.url,"LEN",len(r.content),"TYPE",r.headers.get("content-type"),flush=True)
+                  t=r.text
+                  soup=BeautifulSoup(t,"html.parser")
+                  for a in soup.find_all(["a","iframe","embed","object","script","link","img"]):
+                      vals=[a.get("href"),a.get("src"),a.get("data"),a.get("value")]
+                      label=" ".join(a.stripped_strings)
+                      raw=" ".join(x for x in vals if x)
+                      comb=(label+" "+raw).strip()
+                      if any(k in comb.lower() for k in ("冲击地压","pdf","download","附件","file","attach")):
+                          print(a.name,repr(label[:180]),repr(raw[:500]),flush=True)
+                  print("---- raw matching lines ----",flush=True)
+                  for line in t.splitlines():
+                      low=line.lower()
+                      if any(k in low for k in ("冲击地压","pdf","download","attachment","附件","fileurl","filepath")):
+                          print(line.strip()[:1500],flush=True)
+              except Exception as e:
+                  print("ERROR",type(e).__name__,e,flush=True)
+          PY
