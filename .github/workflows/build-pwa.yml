@@ -29,6 +29,7 @@ jobs:
           curl -fL --retry 3 -o data/rules2025.json https://raw.githubusercontent.com/wangshi-LN/coal-mine-safety-regulations-2025/main/data/coal_mine_safety_regulations_2025.json
           curl -fL --retry 3 -o "source/煤矿安全规程（2025修订）.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/gz11/202508/P020250804637946571624.pdf"
           curl -fL --retry 3 -o "source/2026《防治煤矿冲击地压细则》.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202607/W020260724567567627285.pdf"
+          curl -fL --retry 3 --connect-timeout 20 -o "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf" "https://cdntest.eiacloud.com/uploadPath/45d8d0c9bd1b4d98a2d4de79071232bb/files/cms/2021/5/7/a6288ddf15404f6f8061e0b65344d2a6/%E9%99%95%E8%A5%BF%E7%9C%81%E7%85%A4%E7%9F%BF%E5%86%B2%E5%87%BB%E5%9C%B0%E5%8E%8B%E9%98%B2%E6%B2%BB%E8%A7%84%E5%AE%9A%EF%BC%88%E8%AF%95%E8%A1%8C%EF%BC%89.pdf"
           curl -fL --retry 3 -o "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf" "https://www.mem.gov.cn/gk/zfxxgkpt/fdzdgknr/202605/W020260528321876055084.pdf"
           curl -fL --retry 3 -o "source/KA-2026-第3号公告-标准文本.pdf" "https://www.chinamine-safety.gov.cn/zfxxgk/fdzdgknr/tzgg/202605/W020260713463865545561.pdf"
           python3 -m pip install --disable-pip-version-check --quiet pypdf openstd_spider
@@ -251,6 +252,7 @@ jobs:
           test -s data/rules2025.json
           test -s "source/煤矿安全规程（2025修订）.pdf"
           test -s "source/2026《防治煤矿冲击地压细则》.pdf"
+          test -s "source/陕西省煤矿冲击地压防治规定（试行）_原文.pdf"
           test -s "source/煤矿重大事故隐患判定标准-应急管理部令第21号.pdf"
           test -s "source/KA 35-2026 底板岩层冲击倾向性分类及指数测定方法.pdf"
           test -s "source/KA 36-2026 冲击危险性评价的综合指数方法.pdf"
