@@ -1,14 +1,14 @@
 {
-  "name":"煤矿法规标准智能检索助手",
-  "short_name":"煤矿法规助手",
-  "description":"煤矿法律法规、国标、行标原文检索与隐患条款辅助匹配工具",
-  "start_url":"./index.html",
-  "scope":"./",
-  "display":"standalone",
-  "background_color":"#f4f6f8",
-  "theme_color":"#163a5f",
-  "orientation":"portrait-primary",
-  "icons":[
+  "name": "煤矿法规标准智能检索（防冲专题）",
+  "short_name": "防冲法规检索",
+  "description": "煤矿防冲相关法律法规、GB/T 25217和KA标准高清原文检索",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f2f5f9",
+  "theme_color": "#153956",
+  "icons": [
     {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png"},
     {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png"}
   ]
