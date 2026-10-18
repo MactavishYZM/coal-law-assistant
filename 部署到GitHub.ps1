@@ -12,7 +12,7 @@ foreach ($file in $files) {
   $src = Join-Path $base $file
   if (Test-Path $src) { Copy-Item -LiteralPath $src -Destination (Join-Path $work $file) -Force }
 }
-foreach ($folder in @('source','pages','icons')) {
+foreach ($folder in @('source','pages','icons','assets','formulae')) {
   $dest = Join-Path $work $folder
   if (Test-Path $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
   Copy-Item -LiteralPath (Join-Path $base $folder) -Destination $dest -Recurse -Force
@@ -28,5 +28,5 @@ try {
   & git push origin main
   if ($LASTEXITCODE -ne 0) { throw '推送失败。请先通过 Git Credential Manager 或 gh auth login 登录 GitHub。' }
   Write-Host '更新已推送。GitHub Pages 通常在之后数分钟内完成发布。'
-  Write-Host ('网站地址：https://' + $Repository.Split('/')[0].ToLower() + '.github.io/' + $Repository.Split('/')[1] + '/?v=20261008-hires')
+  Write-Host ('网站地址：https://' + $Repository.Split('/')[0].ToLower() + '.github.io/' + $Repository.Split('/')[1] + '/?v=20261018-text-v2')
 } finally { Pop-Location }
