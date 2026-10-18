@@ -3,51 +3,15 @@
   const D = JSON.parse(document.getElementById('data-json').textContent);
   const docs = new Map(D.docs.map(d => [d.id, d]));
   const records = new Map(D.records.map(r => [r.id, r]));
+  const engine = CoalSearch.create(D);
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-  const norm = s => String(s ?? '').normalize('NFKC').toLowerCase().replace(/[\s，。、；：！？!?,.;:()（）《》<>【】\[\]"'·—_\/\-]/g, '');
   const imgPath = (d, n) => `pages/${d.id}/${String(n).padStart(3, '0')}.webp`;
-  const queryTerms = q => {
-    const raw = norm(q), terms = [raw];
-    const synonyms = {'大直径': ['大孔径', '钻孔卸压'], '应力监测': ['采动应力', '应力在线监测'], '卸压爆破': ['煤层卸压爆破', '顶板预裂'], '微震': ['微震监测'], '冲击地压': ['防冲', '冲击危险']};
-    for (const [key, values] of Object.entries(synonyms)) if (raw.includes(key)) terms.push(...values.map(norm));
-    return terms.filter(Boolean);
-  };
-  function score(record, query, category, scope, bodyPriority) {
-    const doc = docs.get(record.doc), first = norm(query);
-    if (!doc || !first || (category && doc.category !== category) || (scope && doc.id !== scope)) return 0;
-    const text = norm(record.text), clause = norm(record.clause), terms = queryTerms(query);
-    let value = 0;
-    if (text.includes(first)) value += 130 + Math.min(6, text.split(first).length - 1) * 7 + Math.max(0, 18 - Math.floor(text.indexOf(first) / 9));
-    if (clause === first) value += 95; else if (first.length >= 2 && clause.includes(first)) value += 28;
-    if (norm(doc.code).includes(first)) value += 90;
-    if (norm(doc.name).includes(first)) value += 23;
-    if (record.formulaImage && first === '公式') value += 140;
-    if (terms.slice(1).some(term => text.includes(term))) value += 38;
-    if (value < 130) {
-      const parts = first.length > 2 ? [...new Set(Array.from({length: first.length - 1}, (_, i) => first.slice(i, i + 2)))] : [first];
-      const hits = parts.filter(term => text.includes(term)).length;
-      if (!hits && !value) return 0;
-      value += 55 * hits / parts.length;
-    }
-    if (bodyPriority && doc.category.includes('标准')) value += 10;
-    if (record.text.length < 20) value -= 8;
-    return Math.max(0, value);
-  }
-  function excerpt(text, query) {
-    const clean = String(text || '').trim();
-    let at = clean.toLowerCase().indexOf(query.toLowerCase());
-    if (at < 0) at = 0;
-    const start = Math.max(0, at - 65), end = Math.min(clean.length, Math.max(start + 330, at + 230));
-    return (start ? '…' : '') + clean.slice(start, end) + (end < clean.length ? '…' : '');
-  }
-  function highlight(text, query) {
-    if (!query) return esc(text);
-    const rx = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+  function highlight(text, terms) {
     let end = 0, html = '';
-    for (const match of text.matchAll(rx)) {
-      html += esc(text.slice(end, match.index)) + '<mark>' + esc(match[0]) + '</mark>';
-      end = match.index + match[0].length;
+    for (const [start, stop] of CoalSearch.ranges(text, terms)) {
+      html += esc(text.slice(end, start)) + '<mark>' + esc(text.slice(start, stop)) + '</mark>';
+      end = stop;
     }
     return html + esc(text.slice(end));
   }
@@ -62,36 +26,62 @@
     }
     return `<section class="original-body"><div class="original-label">${name}</div>${content}<div class="original-actions"><button class="btn secondary open-formula" data-record="${esc(record.id)}">${record.formulaImage ? '放大公式原文' : '放大原文'}</button><span>PDF第${record.page}页</span></div></section>`;
   }
-  function card(item, query) {
+  function recordBody(record, doc, terms) {
+    return record.displayOriginal ? originalBody(record, doc) : `<div class="excerpt corrected-text">${highlight(CoalSearch.snippet(record.text, terms), terms)}</div>${record.text.length > 330 ? `<details class="full-text"><summary>展开本页条文文字</summary><div class="corrected-text">${highlight(record.text, terms)}</div></details>` : ''}`;
+  }
+  function card(item) {
     const record = item.record, doc = docs.get(record.doc), source = doc.path, n = record.page;
     const label = record.textSource.startsWith('native') ? 'PDF原生文字' : '逐行重识别';
-    const body = record.displayOriginal ? originalBody(record, doc) : `<div class="excerpt corrected-text">${highlight(excerpt(record.text, query), query)}</div>${record.text.length > 330 ? `<details class="full-text"><summary>展开本条文字</summary><div class="corrected-text">${highlight(record.text, query)}</div></details>` : ''}`;
-    return `<article class="match" data-record-id="${esc(record.id)}"><div class="match-title"><div><b>${esc(doc.name)}</b> <span class="pill">${esc(doc.category)}</span> <span class="pill corrected-pill">${label}</span><div class="meta">${esc(doc.code)} · PDF第${n}/${doc.pages}页 ${record.clause ? '· ' + esc(record.clause) : ''}</div></div><span class="score">相关度 ${Math.round(item.score)}</span></div>${body}<details class="preview"><summary class="preview-head">核对PDF整页 · 第${n}/${doc.pages}页</summary><div class="preview-body"><img src="${encodeURI(imgPath(doc, n))}" loading="lazy" alt="${esc(doc.name)} 第${n}页原文" tabindex="0" role="button" data-doc="${esc(doc.id)}" data-page="${n}"></div></details><div class="actions"><button class="btn secondary open-img" data-doc="${esc(doc.id)}" data-page="${n}">查看原文整页</button><a class="document-link" href="${encodeURI(source)}#page=${n}" target="_blank" rel="noopener">打开PDF</a></div></article>`;
+    const terms = item.hits.map(h => h.term), others = item.records.filter(r => r.id !== record.id);
+    const pages = [...new Set(item.records.map(r => r.page))];
+    const pageLabel = pages.length > 1 ? `${pages[0]}–${pages[pages.length - 1]}` : String(n);
+    const reason = (item.hits.length ? `正文命中：${item.hits.map(h => `<span class="hit-term">${esc(h.term)}${h.term !== h.requested ? ' ← ' + esc(h.requested) : ''}</span>`).join(' ')}` : item.label === '公式原文' ? '含直接提取自PDF的公式原图' : '按文件或条款号定位') + (item.contextTerms.length ? `<span class="context-term"> · 结合本文件主题：${esc(item.contextTerms.join('、'))}</span>` : '');
+    const role = item.role === 'reference' ? ' · 引用文件' : item.role === 'front' ? ' · 目录或说明' : '';
+    const continuation = others.length ? `<details class="continuation"><summary>本条另有${others.length}段跨页内容 · 展开核对</summary>${others.map(r => `<section class="continued-record"><div class="meta">PDF第${r.page}页 · ${esc(r.clause)}</div>${recordBody(r, doc, terms)}<button class="btn secondary open-img" data-doc="${esc(doc.id)}" data-page="${r.page}">查看第${r.page}页原文</button></section>`).join('')}</details>` : '';
+    return `<article class="match" data-record-id="${esc(record.id)}"><div class="match-title"><div><b>${esc(doc.name)}</b> <span class="pill">${esc(doc.category)}</span> <span class="pill corrected-pill">${label}</span><div class="meta">${esc(doc.code)} · PDF第${pageLabel}/${doc.pages}页 ${record.clause ? '· ' + esc(record.clause) : ''}</div></div><span class="score">${esc(item.label + role)}</span></div><div class="match-reason">${reason}</div>${recordBody(record, doc, terms)}${continuation}<details class="preview"><summary class="preview-head">核对PDF整页 · 第${n}/${doc.pages}页</summary><div class="preview-body"><img src="${encodeURI(imgPath(doc, n))}" loading="lazy" alt="${esc(doc.name)} 第${n}页原文" tabindex="0" role="button" data-doc="${esc(doc.id)}" data-page="${n}"></div></details><div class="actions"><button class="btn secondary open-img" data-doc="${esc(doc.id)}" data-page="${n}">查看原文整页</button><a class="document-link" href="${encodeURI(source)}#page=${n}" target="_blank" rel="noopener">打开PDF</a></div></article>`;
   }
-  let results = [], cursor = 0, query = '', activeScope = '';
-  function draw(target, list, append, text) {
-    const node = $(target), part = list.slice(cursor, cursor + 18);
-    if (!append) node.innerHTML = '';
-    node.insertAdjacentHTML('beforeend', part.map(item => card(item, text)).join(''));
-    cursor += part.length;
-    if (target === '#results') $('#more').classList.toggle('hidden', cursor >= list.length);
+  const states = {search: {items: [], cursor: 0}, incident: {items: [], cursor: 0}};
+  function draw(kind, append = false) {
+    const state = states[kind], target = kind === 'search' ? '#results' : '#incidentResults';
+    const part = state.items.slice(state.cursor, state.cursor + 18);
+    if (!append) $(target).innerHTML = '';
+    $(target).insertAdjacentHTML('beforeend', part.map(card).join(''));
+    state.cursor += part.length;
+    $(kind === 'search' ? '#more' : '#incidentMore').classList.toggle('hidden', state.cursor >= state.items.length);
+    updateInfo(kind);
+  }
+  function updateInfo(kind) {
+    const state = states[kind], info = $(kind === 'search' ? '#searchInfo' : '#incidentInfo');
+    if (!state.plan?.query) { info.textContent = kind === 'search' ? '输入关键词后点击检索。' : '输入隐患描述后检索。'; return; }
+    const selected = state.scope || state.plan.docIds[0], scope = selected ? `限定文件：${docs.get(selected).name}。` : '';
+    const clause = state.plan.clauseLabel ? `条款：${state.plan.clauseLabel}。` : '';
+    const terms = state.plan.statements ? `按${state.plan.statements.length}项描述分别检索，每项关键词全部满足：${state.plan.statements.map(p => '【' + p.terms.join('、') + '】').join('；')}。` : state.plan.terms.length ? `关键词全部满足：${state.plan.terms.join('、')}。` : '';
+    const concepts = !state.plan.statements && state.plan.concepts?.length ? `术语关联：${state.plan.concepts.map(c => c.phrase).join('、')}。` : '';
+    const empty = state.plan.invalidDocument ? '未收录该标准号，请核对编号和年份。' : '没有满足全部条件的条文，可减少关键词或调整限定文件。';
+    info.textContent = (state.items.length ? `找到${state.items.length}条结果，已显示${state.cursor}条；同一条款的跨页内容已合并。` : empty) + scope + clause + terms + concepts;
+    $(kind === 'search' ? '#results' : '#incidentResults').classList.toggle('empty-results', !state.items.length);
   }
   function perform(value, incident = false) {
     const text = String(value || '').trim();
-    const category = incident ? '' : $('#category').value, scope = incident ? '' : activeScope;
-    const bodyPriority = incident || $('#onlytext').checked;
-    const found = D.records.map(record => ({record, score: score(record, text, category, scope, bodyPriority)})).filter(item => item.score >= 30).sort((a, b) => b.score - a.score || a.record.page - b.record.page);
-    cursor = 0;
-    if (!incident) { results = found; query = text; }
-    draw(incident ? '#incidentResults' : '#results', found, false, text);
-    $(incident ? '#incidentInfo' : '#searchInfo').textContent = text ? `找到${found.length}条结果，当前显示${Math.min(cursor, found.length)}条。${scope ? '限定资料：' + docs.get(scope).name : ''}` : '请输入关键词';
-    $('#more').classList.toggle('hidden', incident || cursor >= found.length);
+    const kind = incident ? 'incident' : 'search';
+    const options = {category: incident ? '' : $('#category').value, scope: incident ? '' : $('#document').value, mode: incident ? 'all' : $('#searchmode').value, descriptive: incident};
+    const found = engine.search(text, options);
+    states[kind] = {...found, scope: options.scope, cursor: 0};
+    draw(kind);
   }
   $('#go').onclick = () => perform($('#q').value);
   $('#q').onkeydown = event => { if (event.key === 'Enter') perform($('#q').value); };
-  $('#clear').onclick = () => { $('#q').value = ''; activeScope = ''; perform(''); };
-  $('#category').onchange = () => perform($('#q').value);
-  $('#more').onclick = () => draw('#results', results, true, query);
+  $('#clear').onclick = () => { $('#q').value = ''; $('#document').value = ''; $('#category').value = ''; syncDocuments(); perform(''); };
+  function syncDocuments() {
+    const selected = $('#document').value;
+    $('#document').innerHTML = '<option value="">全部文件</option>' + D.docs.filter(d => !$('#category').value || d.category === $('#category').value).map(d => `<option value="${esc(d.id)}">${esc(d.code)} · ${esc(d.name)}</option>`).join('');
+    if ([...$('#document').options].some(o => o.value === selected)) $('#document').value = selected;
+  }
+  syncDocuments();
+  $('#category').onchange = () => { syncDocuments(); perform($('#q').value); };
+  $('#document').onchange = $('#searchmode').onchange = () => perform($('#q').value);
+  $('#more').onclick = () => draw('search', true);
+  $('#incidentMore').onclick = () => draw('incident', true);
   $('#incidentGo').onclick = () => perform($('#incident').value, true);
   $('#incidentClear').onclick = () => { $('#incident').value = ''; perform('', true); };
   const tabs = ['search', 'incident', 'library'];
@@ -103,9 +93,11 @@
   $('#doclist').onclick = event => {
     const element = event.target.closest('.doc-search');
     if (!element) return;
-    activeScope = element.dataset.id;
+    $('#category').value = '';
+    syncDocuments();
+    $('#document').value = element.dataset.id;
     document.querySelector('[data-tab="search"]').click();
-    $('#q').value = docs.get(activeScope).code;
+    $('#q').value = docs.get(element.dataset.id).code;
     perform($('#q').value);
     window.scrollTo({top: 0, behavior: 'smooth'});
   };

@@ -1,5 +1,5 @@
-const VERSION='coal-law-text-formula-20261018-v2';
-const ESSENTIAL=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./assets/corrected-app.js?v=20261018-text-v2','./assets/corrected-text.css?v=20261018-text-v2'];
+const VERSION='coal-law-precision-search-20261018-v3';
+const ESSENTIAL=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./assets/search-engine.js?v=20261018-search-v3','./assets/corrected-app.js?v=20261018-search-v3','./assets/corrected-text.css?v=20261018-search-v3'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(VERSION).then(c=>c.addAll(ESSENTIAL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
